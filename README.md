@@ -22,12 +22,12 @@ import (
 ```
 
 Run any of the normal `go` commands (`build`/`install`/`test`). The Go
-toolchain will resolve and fetch the featureguards-go module automatically.
+toolchain will resolve and fetch the `featureguards-go` module automatically.
 
 Alternatively, you can also explicitly `go get` the package into a project:
 
 ```bash
-go get -u github.com/featureguards/featureguards-go/v72
+go get -u github.com/featureguards/featureguards-go/v2
 ```
 
 ## Documentation
@@ -52,3 +52,10 @@ on, err := ft.IsOn("TEST")
 
 on, err = ft.IsOn("FOO")
 ```
+
+[goref]: https://pkg.go.dev/github.com/featureguards/featureguards-go
+[issues]: https://github.com/featureguards/featureguards-go/issues/new
+[modules]: https://github.com/golang/go/wiki/Modules
+[package-management]: https://code.google.com/p/go-wiki/wiki/PackageManagementTools
+[pulls]: https://github.com/featureguards/featureguards-go/pulls
+[featureguards]: https://featureguards.com

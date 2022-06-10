@@ -114,6 +114,8 @@ func newFeatureToggles(ctx context.Context, options ...Options) (*featureToggles
 type ftOptions struct {
 	attrs Attributes
 }
+
+// FeatureToggleOptions provides optional options to IsOn, such as attributes.
 type FeatureToggleOptions func(o *ftOptions) error
 
 // IsOn returns whether the feature toggle with the given name is on or not based on its settings and

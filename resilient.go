@@ -31,6 +31,9 @@ type ResilientFeatureToggles struct {
 	defaults map[string]bool
 }
 
+// New creates a new FeatureGuards client. The context passed in is expected to be long-running and
+// controls the life-time of the client, usually the same lifetime as the binary.
+// New dials in a separate go routine and will try to establish connection to FeatureGuards over time.
 func New(ctx context.Context, options ...Options) *ResilientFeatureToggles {
 	// extract the defaults
 	opts := &toggleOptions{}
@@ -78,7 +81,7 @@ func New(ctx context.Context, options ...Options) *ResilientFeatureToggles {
 }
 
 // IsOn returns whether the feature toggle with the given name is on or not based on its settings and
-// the passed in options, which include any attributes we're matching against.
+// the passed in options, which include any attributes FeatureGuards rules match against.
 func (r *ResilientFeatureToggles) IsOn(name string, options ...FeatureToggleOptions) (bool, error) {
 	r.mu.RLock()
 	ft := r.ft

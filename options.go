@@ -6,7 +6,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+// LogLevel controls the verbosity logging level.
 type LogLevel = logger.LogLevel
+
+// Options specifies the options passed to the FeatueGuards client.
 type Options = func(o *toggleOptions) error
 
 type toggleOptions struct {
@@ -19,6 +22,7 @@ type toggleOptions struct {
 	defaults      map[string]bool
 }
 
+// WithDialOptions adds gRPC dial options. Can be used to enforce a timeout on the initial dial.
 func WithDialOptions(options ...grpc.DialOption) Options {
 	return func(o *toggleOptions) error {
 		o.dialOptions = options
@@ -26,6 +30,7 @@ func WithDialOptions(options ...grpc.DialOption) Options {
 	}
 }
 
+// WithApiKey is required and specifies the API key specific to the FeatureGuards project and environment.
 func WithApiKey(key string) Options {
 	return func(o *toggleOptions) error {
 		o.apiKey = key
@@ -33,6 +38,9 @@ func WithApiKey(key string) Options {
 	}
 }
 
+// WithDefaults adds default values for feature toggle names. This is useful to ensure that in
+// cases where FeatureGuards is down or cannot be reached, you can specify different values to be
+// returned. By default, every feature toggle is off unless a different value is specified here.
 func WithDefaults(v map[string]bool) Options {
 	return func(o *toggleOptions) error {
 		o.defaults = v

@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	pb_ft "github.com/featureguards/featureguards-go/v1/proto/feature_toggle"
+	pb_ft "github.com/featureguards/featureguards-go/v2/proto/feature_toggle"
 )
 
 func (ft *featureToggles) listenLoop(bgCtx context.Context) {

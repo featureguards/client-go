@@ -3,11 +3,11 @@ package client
 import (
 	"context"
 
-	"github.com/featureguards/featureguards-go/v1/internal/meta"
+	"github.com/featureguards/featureguards-go/v2/internal/meta"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	pb_auth "github.com/featureguards/featureguards-go/v1/proto/auth"
+	pb_auth "github.com/featureguards/featureguards-go/v2/proto/auth"
 )
 
 const (

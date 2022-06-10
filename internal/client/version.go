@@ -5,5 +5,5 @@ import (
 )
 
 var (
-	version = semver.Build("v0.1.0")
+	version = semver.Build("v2.0.0")
 )

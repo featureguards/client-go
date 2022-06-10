@@ -2,11 +2,16 @@ package featureguards
 
 import (
 	"context"
-	"errors"
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/featureguards/featureguards-go/v1/internal/random"
+	"github.com/featureguards/featureguards-go/v2/certs"
+	"github.com/featureguards/featureguards-go/v2/internal/random"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -32,18 +37,16 @@ func New(ctx context.Context, options ...Options) *ResilientFeatureToggles {
 	for _, opt := range options {
 		opt(opts)
 	}
-	cert := "../certs/prod.pem"
-	if opts.testCerts {
-		cert = "../certs/test.pem"
+	if opts.domain == "" {
+		opts.domain = defaultDomain
 	}
-	creds, err := credentials.NewClientTLSFromFile(cert, "")
-	if err != nil {
-		log.Errorln("Feature-guards couldn't be initialized. This should never happen.")
-	}
-
 	defaults := opts.defaults
 	if defaults == nil {
 		defaults = make(map[string]bool)
+	}
+	creds, err := tlsCreds(opts.testCerts, opts.domain)
+	if err != nil {
+		log.Error("Could not initialize feature-guards.")
 	}
 	options = append(options, WithDialOptions(grpc.WithTransportCredentials(creds)))
 	ft, err := newFeatureToggles(ctx, options...)
@@ -52,6 +55,7 @@ func New(ctx context.Context, options ...Options) *ResilientFeatureToggles {
 		defaults: defaults,
 	}
 	if err != nil {
+		log.Warnf("Could not initialize feature-guards due to %s. Will retry again.\n", err)
 		// Retry connecting in the background. Never block.
 		go func() {
 			for {
@@ -84,4 +88,24 @@ func (r *ResilientFeatureToggles) IsOn(name string, options ...FeatureToggleOpti
 	}
 	found := r.defaults[name]
 	return found, ErrNoFeatureToggles
+}
+
+func tlsCreds(isTest bool, addr string) (credentials.TransportCredentials, error) {
+	var cert []byte
+	if isTest {
+		cert = certs.TestCA
+	} else {
+		b, err := ioutil.ReadFile("/etc/ssl/cert.pem")
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		cert = b
+	}
+
+	cp := x509.NewCertPool()
+	if !cp.AppendCertsFromPEM(cert) {
+		return nil, errors.WithStack(errors.New("could not append cert"))
+	}
+	splitted := strings.Split(addr, ":")
+	return credentials.NewTLS(&tls.Config{ServerName: splitted[0], RootCAs: cp}), nil
 }

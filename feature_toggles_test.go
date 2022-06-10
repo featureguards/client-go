@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	pb_ft "github.com/featureguards/featureguards-go/v1/proto/feature_toggle"
+	pb_ft "github.com/featureguards/featureguards-go/v2/proto/feature_toggle"
 	_ "github.com/joho/godotenv/autoload"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -171,6 +171,31 @@ func Test_isOn(t *testing.T) {
 				t.Errorf("isOn() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func Test_refreshTokens(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	addr := os.Getenv("GRPC_ADDR")
+	apiKey := os.Getenv("API_KEY")
+	ft := New(ctx, withDomain(addr), withoutListen(), withTestCerts(),
+		WithApiKey(apiKey), WithDefaults(map[string]bool{"BAR": true}))
+	ft.ft.mu.Lock()
+	accessToken := ft.ft.accessToken
+	refreshToken := ft.ft.refreshToken
+	ft.ft.mu.Unlock()
+	err := ft.ft.refreshTokens(ctx)
+	if err != nil {
+		t.Errorf("refreshTokens() error = %v, wantErr nil", err)
+	}
+	ft.ft.mu.Lock()
+	defer ft.ft.mu.Unlock()
+	if accessToken == ft.ft.accessToken {
+		t.Errorf("accessToken = %v, want != %v", ft.ft.accessToken, accessToken)
+	}
+	if refreshToken == ft.ft.refreshToken {
+		t.Errorf("refreshToken = %v, want != %v", ft.ft.refreshToken, refreshToken)
 	}
 }
 

@@ -1,4 +1,4 @@
-module github.com/featureguards/featureguards-go/v1
+module github.com/featureguards/featureguards-go/v2
 
 go 1.18
 

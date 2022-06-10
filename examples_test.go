@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	featureguards "github.com/featureguards/featureguards-go/v1"
+	featureguards "github.com/featureguards/featureguards-go/v2"
 )
 
 func ExampleResilientFeatureToggles_IsOn() {

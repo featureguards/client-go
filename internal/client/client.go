@@ -2,21 +2,21 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/featureguards/featureguards-go/v1/internal/logger"
+	"github.com/featureguards/featureguards-go/v2/internal/logger"
 	"github.com/pkg/errors"
 
-	pb_auth "github.com/featureguards/featureguards-go/v1/proto/auth"
-	pb_toggles "github.com/featureguards/featureguards-go/v1/proto/toggles"
+	pb_auth "github.com/featureguards/featureguards-go/v2/proto/auth"
+	pb_toggles "github.com/featureguards/featureguards-go/v2/proto/toggles"
 
 	"google.golang.org/grpc"
 )
 
 const (
-	defaultDomain = "featureguards.com"
-	dialTimeout   = 1 * time.Second
-	apiTimeout    = 3 * time.Second
+	dialTimeout = 1 * time.Second
+	apiTimeout  = 3 * time.Second
 )
 
 type clientOptions struct {
@@ -71,7 +71,7 @@ func New(ctx context.Context, options ...Options) (*Client, error) {
 		}
 	}
 	if opts.domain == "" {
-		opts.domain = defaultDomain
+		return nil, fmt.Errorf("no domain specified")
 	}
 
 	dialCtx, cancelDial := context.WithTimeout(ctx, dialTimeout)

@@ -1,6 +1,6 @@
 # Go SDK for FeatureGuards
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/featureguards/featureguards-go/v1)](https://pkg.go.dev/github.com/featueguards/featureguards-go/v1)
+[![Go Reference](https://pkg.go.dev/badge/github.com/featureguards/featureguards-go/v2)](https://pkg.go.dev/github.com/featueguards/featureguards-go/v2)
 
 The official [FeatureGuards][featureguards] Go client library.
 
@@ -13,11 +13,11 @@ root if it already is):
 go mod init
 ```
 
-Then, reference featureguards-go/v1 in a Go program with `import`:
+Then, reference featureguards-go/v2 in a Go program with `import`:
 
 ```go
 import (
-	featureguards "github.com/featureguards/featureguards-go/v1"
+	featureguards "github.com/featureguards/featureguards-go/v2"
 )
 ```
 

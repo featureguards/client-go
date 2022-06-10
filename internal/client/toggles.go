@@ -3,8 +3,8 @@ package client
 import (
 	"context"
 
-	"github.com/featureguards/featureguards-go/v1/internal/meta"
-	pb_toggles "github.com/featureguards/featureguards-go/v1/proto/toggles"
+	"github.com/featureguards/featureguards-go/v2/internal/meta"
+	pb_toggles "github.com/featureguards/featureguards-go/v2/proto/toggles"
 )
 
 // Fetch fetches new feature toggles since clientVersion

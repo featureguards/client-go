@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/cespare/xxhash/v2"
-	"github.com/featureguards/featureguards-go/v1/internal/client"
-	"github.com/featureguards/featureguards-go/v1/internal/random"
+	"github.com/featureguards/featureguards-go/v2/internal/client"
+	"github.com/featureguards/featureguards-go/v2/internal/random"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	pb_ft "github.com/featureguards/featureguards-go/v1/proto/feature_toggle"
+	pb_ft "github.com/featureguards/featureguards-go/v2/proto/feature_toggle"
 )
 
 const (
@@ -63,9 +63,10 @@ func newFeatureToggles(ctx context.Context, options ...Options) (*featureToggles
 	if opts.apiKey != "" {
 		clientOptions = append(clientOptions, client.WithApiKey(opts.apiKey))
 	}
-	if opts.domain != "" {
-		clientOptions = append(clientOptions, client.WithDomain(opts.domain))
+	if opts.domain == "" {
+		opts.domain = defaultDomain
 	}
+	clientOptions = append(clientOptions, client.WithDomain(opts.domain))
 	clientOptions = append(clientOptions, client.WithLogLevel(opts.logLevel))
 	cl, err := client.New(ctx, clientOptions...)
 	if err != nil {

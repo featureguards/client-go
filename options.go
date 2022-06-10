@@ -1,7 +1,7 @@
 package featureguards
 
 import (
-	"github.com/featureguards/featureguards-go/v1/internal/logger"
+	"github.com/featureguards/featureguards-go/v2/internal/logger"
 
 	"google.golang.org/grpc"
 )

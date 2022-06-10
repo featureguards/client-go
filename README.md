@@ -13,7 +13,7 @@ root if it already is):
 go mod init
 ```
 
-Then, reference featureguards-go/v2 in a Go program with `import`:
+Then, reference `featureguards-go/v2` in a Go program with `import`:
 
 ```go
 import (
@@ -49,8 +49,21 @@ ft := featureguards.New(ctx, featureguards.WithApiKey("API_KEY"), featureguards.
 
 // Call IsOn multiple times.
 on, err := ft.IsOn("TEST")
+```
 
-on, err = ft.IsOn("FOO")
+### IsOn with attributes
+
+```go
+// Create the client once.
+ctx, cancel := context.WithCancel(context.Background())
+defer cancel()
+
+// The only require parameter is the API Key. Other options are available. See [goref].
+ft := featureguards.New(ctx, featureguards.WithApiKey("API_KEY"), featureguards.WithDefaults(map[string]bool{"TEST": true}))
+
+// Call IsOn multiple times.
+on, _ := ft.IsOn("FOO", featureguards.WithAttributes(
+	featureguards.Attributes{}.Int64("user_id", 123).String("company_slug", "acme")))
 ```
 
 [goref]: https://pkg.go.dev/github.com/featureguards/featureguards-go

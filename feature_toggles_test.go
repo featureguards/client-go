@@ -15,6 +15,7 @@ func Test_hash(t *testing.T) {
 	type args struct {
 		name  string
 		keys  []*pb_ft.Key
+		hash  string
 		attrs Attributes
 	}
 	time, err := time.Parse(time.RFC3339, "2019-10-12T07:20:50.52Z")
@@ -22,7 +23,8 @@ func Test_hash(t *testing.T) {
 		t.Fatal(err)
 	}
 	attrs := Attributes(map[string]interface{}{}).
-		Int("user_id", 123).
+		Float("user_id", 123).
+		Int("company_id", 123).
 		String("company_slug", "FeatureGuards").
 		Bool("is_admin", true).
 		Time("created_at", time)
@@ -32,13 +34,17 @@ func Test_hash(t *testing.T) {
 		want    uint64
 		wantErr bool
 	}{
-		{name: "basic int", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "user_id", KeyType: pb_ft.Key_FLOAT}}, attrs: attrs}, want: 4353148100880623749, wantErr: false},
-		{name: "wrong int type", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "company_slug", KeyType: pb_ft.Key_FLOAT}}, attrs: attrs}, want: 0, wantErr: true},
+		{name: "basic float", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "user_id", KeyType: pb_ft.Key_FLOAT}}, attrs: attrs}, want: 4353148100880623749, wantErr: false},
+		{name: "wrong float type", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "company_slug", KeyType: pb_ft.Key_FLOAT}}, attrs: attrs}, want: 0, wantErr: true},
+		{name: "basic int", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "company_id", KeyType: pb_ft.Key_INT}}, attrs: attrs}, want: 4353148100880623749, wantErr: false},
+		{name: "wrong int type", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "company_slug", KeyType: pb_ft.Key_INT}}, attrs: attrs}, want: 0, wantErr: true},
 		{name: "basic string", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "company_slug", KeyType: pb_ft.Key_STRING}}, attrs: attrs}, want: 15324770540884756055, wantErr: false},
+		{name: "basic string with hash", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "company_slug", KeyType: pb_ft.Key_STRING}}, hash: "foo", attrs: attrs}, want: 13498803372803212218, wantErr: false},
+		{name: "basic string with a different hash", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "company_slug", KeyType: pb_ft.Key_STRING}}, hash: "FoO", attrs: attrs}, want: 6440734465410601463, wantErr: false},
 		{name: "wrong string type", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "user_id", KeyType: pb_ft.Key_STRING}}, attrs: attrs}, want: 0, wantErr: true},
 		{name: "basic bool", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "is_admin", KeyType: pb_ft.Key_BOOLEAN}}, attrs: attrs}, want: 15549163119024811594, wantErr: false},
 		{name: "wrong bool type", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "user_id", KeyType: pb_ft.Key_BOOLEAN}}, attrs: attrs}, want: 0, wantErr: true},
-		{name: "basic time", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "created_at", KeyType: pb_ft.Key_DATE_TIME}}, attrs: attrs}, want: 148043139920556009, wantErr: false},
+		{name: "basic time", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "created_at", KeyType: pb_ft.Key_DATE_TIME}}, attrs: attrs}, want: 16092501893693493459, wantErr: false},
 		{name: "wrong time type", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "user_id", KeyType: pb_ft.Key_DATE_TIME}}, attrs: attrs}, want: 0, wantErr: true},
 		{name: "missing key", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "user_iD", KeyType: pb_ft.Key_FLOAT}}, attrs: attrs}, want: 0, wantErr: true},
 		{name: "empty key", args: args{name: "FOO", keys: []*pb_ft.Key{{Key: "", KeyType: pb_ft.Key_FLOAT}}, attrs: attrs.String("", "foo")}, want: 0, wantErr: true},
@@ -46,7 +52,7 @@ func Test_hash(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := hash(tt.args.name, tt.args.keys, tt.args.attrs)
+			got, err := hash(tt.args.name, tt.args.keys, tt.args.hash, tt.args.attrs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("hash() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -69,7 +75,8 @@ func Test_match(t *testing.T) {
 		t.Fatal(err)
 	}
 	attrs := Attributes(map[string]interface{}{}).
-		Int("user_id", 123).
+		Float("user_id", 123).
+		Int("company_id", 123).
 		String("company_slug", "FeatureGuards").
 		Bool("is_admin", true).
 		Time("created_at", timestamp)
@@ -106,6 +113,18 @@ func Test_match(t *testing.T) {
 		{name: "time after mismatches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "created_at", KeyType: pb_ft.Key_DATE_TIME}, Operation: &pb_ft.Match_DateTimeOp{DateTimeOp: &pb_ft.DateTimeOp{Timestamp: timestamppb.New(timestamp), Op: pb_ft.DateTimeOp_AFTER}}}}}, want: false, wantErr: false},
 		{name: "time before matches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "created_at", KeyType: pb_ft.Key_DATE_TIME}, Operation: &pb_ft.Match_DateTimeOp{DateTimeOp: &pb_ft.DateTimeOp{Timestamp: timestamppb.New(timestamp.Add(1 * time.Second)), Op: pb_ft.DateTimeOp_BEFORE}}}}}, want: true, wantErr: false},
 		{name: "time before mismatches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "created_at", KeyType: pb_ft.Key_DATE_TIME}, Operation: &pb_ft.Match_DateTimeOp{DateTimeOp: &pb_ft.DateTimeOp{Timestamp: timestamppb.New(timestamp), Op: pb_ft.DateTimeOp_BEFORE}}}}}, want: false, wantErr: false},
+		{name: "int neq matches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{123}, Op: pb_ft.IntOp_NEQ}}}}}, want: false, wantErr: false},
+		{name: "int neq mismatches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{1234}, Op: pb_ft.IntOp_NEQ}}}}}, want: true, wantErr: false},
+		{name: "int gt matches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{122}, Op: pb_ft.IntOp_GT}}}}}, want: true, wantErr: false},
+		{name: "int gt mismatches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{123}, Op: pb_ft.IntOp_GT}}}}}, want: false, wantErr: false},
+		{name: "int gte matches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{123}, Op: pb_ft.IntOp_GTE}}}}}, want: true, wantErr: false},
+		{name: "int gte mismatches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{124}, Op: pb_ft.IntOp_GTE}}}}}, want: false, wantErr: false},
+		{name: "int lt matches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{124}, Op: pb_ft.IntOp_LT}}}}}, want: true, wantErr: false},
+		{name: "int lt mismatches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{123}, Op: pb_ft.IntOp_LT}}}}}, want: false, wantErr: false},
+		{name: "int lte matches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{123}, Op: pb_ft.IntOp_LTE}}}}}, want: true, wantErr: false},
+		{name: "int lte mismatches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{122}, Op: pb_ft.IntOp_LTE}}}}}, want: false, wantErr: false},
+		{name: "int in matches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{1, 123}, Op: pb_ft.IntOp_IN}}}}}, want: true, wantErr: false},
+		{name: "int in mismatches", args: args{name: "FOO", attrs: attrs, matches: []*pb_ft.Match{{Key: &pb_ft.Key{Key: "company_id", KeyType: pb_ft.Key_INT}, Operation: &pb_ft.Match_IntOp{IntOp: &pb_ft.IntOp{Values: []int64{2, 122}, Op: pb_ft.IntOp_IN}}}}}, want: false, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -209,6 +228,14 @@ func Test_IsOn(t *testing.T) {
 	if ft.ft == nil {
 		t.Error("feature toggles should not be nil")
 	}
+
+	// test listen
+	deadlineCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+	defer cancel()
+	if err := ft.ft.listen(deadlineCtx); err != nil {
+		t.Errorf("listen() error = %v, wantErr not found", err)
+	}
+
 	on, err := ft.IsOn("TEST")
 	if err != nil {
 		t.Errorf("IsOn() error = %v, wantErr nil", err)
@@ -224,5 +251,4 @@ func Test_IsOn(t *testing.T) {
 	if !on {
 		t.Errorf("on() on = %v, wantOn %v", on, true)
 	}
-
 }

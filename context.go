@@ -16,13 +16,13 @@ type Attributes map[string]interface{}
 
 // Int64 adds a new int64 attribute.
 func (a Attributes) Int64(name string, n int64) Attributes {
-	a[name] = float32(n)
+	a[name] = int64(n)
 	return a
 }
 
 // Int adds a new int attribute.
 func (a Attributes) Int(name string, n int) Attributes {
-	a[name] = float32(n)
+	a[name] = int64(n)
 	return a
 }
 

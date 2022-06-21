@@ -70,6 +70,7 @@ func (ft *featureToggles) listenCtx(ctx context.Context) (context.Context, conte
 	if err != nil {
 		return nil, nil, err
 	}
+	log.Infof("%+v\n", token.Expiration())
 	newCtx, cancel := context.WithDeadline(ctx, token.Expiration())
 	return newCtx, cancel, nil
 }
@@ -94,7 +95,7 @@ func (ft *featureToggles) refreshTokens(bgCtx context.Context) error {
 }
 
 func (ft *featureToggles) parse(token string) (jwt.Token, error) {
-	return jwt.Parse([]byte(token))
+	return jwt.Parse([]byte(token), jwt.WithVerify(false))
 }
 
 func (ft *featureToggles) process(fts []*pb_ft.FeatureToggle, version int64) {

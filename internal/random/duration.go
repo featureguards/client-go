@@ -12,7 +12,7 @@ func Dur(max time.Duration) time.Duration {
 
 // Uniformly jitters the provided duration by +/- 10%.
 func Jitter(period time.Duration) time.Duration {
-	return JitterFraction(period, .9)
+	return JitterFraction(period, .2)
 }
 
 // Uniformly jitters the provided duration by +/- the given fraction.  NOTE:

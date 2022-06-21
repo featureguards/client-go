@@ -161,5 +161,5 @@ var Toggles_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "toggles.proto",
+	Metadata: "toggles/toggles.proto",
 }

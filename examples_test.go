@@ -7,7 +7,7 @@ import (
 	featureguards "github.com/featureguards/featureguards-go/v2"
 )
 
-func ExampleResilientFeatureToggles_IsOn() {
+func ExampleFeatureGuards_IsOn() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ft := featureguards.New(ctx, featureguards.WithApiKey("API_KEY"),
@@ -17,7 +17,7 @@ func ExampleResilientFeatureToggles_IsOn() {
 	// Output: true
 }
 
-func ExampleResilientFeatureToggles_IsOn_attributes() {
+func ExampleFeatureGuards_IsOn_attributes() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ft := featureguards.New(ctx, featureguards.WithApiKey("API_KEY"),

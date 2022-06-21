@@ -94,15 +94,12 @@ func newFeatureToggles(ctx context.Context, options ...Options) (*featureToggles
 		client:            cl,
 		ftByName:          make(map[string]*pb_ft.FeatureToggle),
 		errDeadlineByName: make(map[string]time.Time),
-		clientVersion:     fetched.Version,
 		accessToken:       accessToken,
 		refreshToken:      refreshToken,
 		defaults:          opts.defaults,
 	}
 
-	for _, ft := range fetched.FeatureToggles {
-		toggles.ftByName[ft.Name] = ft
-	}
+	toggles.process(fetched.FeatureToggles, fetched.Version)
 
 	if !opts.withoutListen {
 		go toggles.listenLoop(ctx)
@@ -131,7 +128,7 @@ func (ft *featureToggles) IsOn(name string, options ...FeatureToggleOptions) (bo
 		return defaults, err
 	}
 
-	on, err := isOn(found)
+	on, err := isOn(found, options...)
 	if err != nil {
 		ft.maybeLogError(name, err)
 		return defaults, err
@@ -150,7 +147,6 @@ func isOn(ft *pb_ft.FeatureToggle, options ...FeatureToggleOptions) (bool, error
 	if !ft.Enabled {
 		return false, nil
 	}
-	log.Infof("%+v\n", ft.DeletedAt)
 	if ft.DeletedAt.IsValid() {
 		return false, errors.Errorf("feature toggle %s was deleted", ft.Name)
 	}
@@ -160,11 +156,11 @@ func isOn(ft *pb_ft.FeatureToggle, options ...FeatureToggleOptions) (bool, error
 	case pb_ft.FeatureToggle_ON_OFF:
 		def := ft.GetOnOff()
 		if def == nil || def.On == nil || def.Off == nil {
-			return false, errors.Errorf("feature toggle %s is invalid.", ft.Name)
+			return false, errors.Errorf("feature toggle %s is invalid", ft.Name)
 		}
 		if def.Off.Weight != 0 && def.Off.Weight != 100 || def.On.Weight != 0 && def.On.Weight != 100 ||
 			def.On.Weight == def.Off.Weight {
-			return false, errors.Errorf("invalid weights for feature toggle %s.", ft.Name)
+			return false, errors.Errorf("invalid weights for feature toggle %s", ft.Name)
 		}
 		if def.On.Weight > 0 {
 			on = true
@@ -188,7 +184,7 @@ func isOn(ft *pb_ft.FeatureToggle, options ...FeatureToggleOptions) (bool, error
 	case pb_ft.FeatureToggle_PERCENTAGE:
 		def := ft.GetPercentage()
 		if def == nil || def.On == nil || def.Off == nil || def.Stickiness == nil {
-			return false, errors.Errorf("feature toggle %s is invalid.", ft.Name)
+			return false, errors.Errorf("feature toggle %s is invalid", ft.Name)
 		}
 		if def.On.Weight+def.Off.Weight != 100 || def.On.Weight < 0 || def.Off.Weight < 0 {
 			return false, errors.Errorf("invalid weights for feature toggle %s", ft.Name)
@@ -196,9 +192,9 @@ func isOn(ft *pb_ft.FeatureToggle, options ...FeatureToggleOptions) (bool, error
 
 		switch def.Stickiness.StickinessType {
 		case pb_ft.Stickiness_RANDOM:
-			on = rand.Float32() < def.On.Weight
+			on = rand.Float32()*100 < def.On.Weight
 		case pb_ft.Stickiness_KEYS:
-			hash, err := hash(ft.Name, def.Stickiness.Keys, opts.attrs)
+			hash, err := hash(ft.Name, def.Stickiness.Keys, def.Salt, opts.attrs)
 			if err != nil {
 				return false, err
 			}
@@ -241,17 +237,21 @@ func (ft *featureToggles) maybeLogError(name string, err error) {
 	}
 }
 
-func hash(name string, keys []*pb_ft.Key, attrs Attributes) (uint64, error) {
+func hash(name string, keys []*pb_ft.Key, salt string, attrs Attributes) (uint64, error) {
+	if len(keys) == 0 {
+		return 0, errors.Errorf("no attributes defined for feature toggle %s", name)
+	}
+
 	// process keys in order and pick the first one that exists
 	for _, key := range keys {
+		if key.Key == "" {
+			return 0, errors.Errorf("no key name passed for feature toggle %s", name)
+		}
 		attr, ok := attrs[key.Key]
 		if !ok {
 			continue
 		}
-		if key.Key == "" {
-			return 0, errors.Errorf("no key name passed for feature toggle %s", name)
-		}
-		var v string
+		v := salt
 		// Below must be uniform across all languages
 		switch key.KeyType {
 		case pb_ft.Key_BOOLEAN:
@@ -259,28 +259,35 @@ func hash(name string, keys []*pb_ft.Key, attrs Attributes) (uint64, error) {
 			if !ok {
 				return 0, errors.Errorf("expected boolean for key %s for feature toggle %s", key.Key, name)
 			}
-			v = "false"
 			if found {
-				v = "true"
+				v += "true"
+			} else {
+				v += "false"
 			}
 		case pb_ft.Key_STRING:
 			found, ok := attr.(string)
 			if !ok {
 				return 0, errors.Errorf("expected string for key %s for feature toggle %s", key.Key, name)
 			}
-			v = found
+			v += found
 		case pb_ft.Key_FLOAT:
 			found, ok := attr.(float32)
 			if !ok {
-				return 0, errors.Errorf("expected float/int for key %s for feature toggle %s", key.Key, name)
+				return 0, errors.Errorf("expected float for key %s for feature toggle %s", key.Key, name)
 			}
-			v = strconv.FormatFloat(float64(found), 'f', -1, 64)
+			v += strconv.FormatFloat(float64(found), 'f', -1, 64)
+		case pb_ft.Key_INT:
+			found, ok := attr.(int64)
+			if !ok {
+				return 0, errors.Errorf("expected int/int64 for key %s for feature toggle %s", key.Key, name)
+			}
+			v += strconv.FormatInt(found, 10)
 		case pb_ft.Key_DATE_TIME:
 			found, ok := attr.(time.Time)
 			if !ok {
-				return 0, errors.Errorf("expected float/int for key %s for feature toggle %s", key.Key, name)
+				return 0, errors.Errorf("expected time.Time for key %s for feature toggle %s", key.Key, name)
 			}
-			v = found.Format(time.RFC3339)
+			v += strconv.FormatInt(found.UnixMilli(), 10)
 		default:
 			return 0, fmt.Errorf("unknown key type for %s for feature toggle %s", key.Key, name)
 		}
@@ -308,8 +315,8 @@ func match(name string, matches []*pb_ft.Match, attrs Attributes) (bool, error) 
 			if !ok {
 				return false, errors.Errorf("value passed for key %s is not boolean for feature toggle %s", m.Key.Key, name)
 			}
-			if !ok || m.GetBoolOp() == nil {
-				return false, errors.Errorf("value passed for key %s is not boolean for feature toggle %s", m.Key.Key, name)
+			if m.GetBoolOp() == nil {
+				return false, errors.Errorf("no boolean operation set for key %s and feature toggle %s", m.Key.Key, name)
 			}
 			value := m.GetBoolOp().Value
 			if v == value {
@@ -337,7 +344,7 @@ func match(name string, matches []*pb_ft.Match, attrs Attributes) (bool, error) 
 		case pb_ft.Key_FLOAT:
 			v, ok := found.(float32)
 			if !ok || m.GetFloatOp() == nil {
-				return false, errors.Errorf("value passed for key %s is not float/int for feature toggle %s", m.Key.Key, name)
+				return false, errors.Errorf("value passed for key %s is not float for feature toggle %s", m.Key.Key, name)
 			}
 			values := m.GetFloatOp().Values
 			switch op := m.GetFloatOp().Op; op {
@@ -365,6 +372,43 @@ func match(name string, matches []*pb_ft.Match, attrs Attributes) (bool, error) 
 				case pb_ft.FloatOp_LTE:
 					on = v <= values[0]
 				case pb_ft.FloatOp_NEQ:
+					on = v != values[0]
+				}
+				if on {
+					return true, nil
+				}
+			}
+		case pb_ft.Key_INT:
+			v, ok := found.(int64)
+			if !ok || m.GetIntOp() == nil {
+				return false, errors.Errorf("value passed for key %s is not int64 for feature toggle %s", m.Key.Key, name)
+			}
+			values := m.GetIntOp().Values
+			switch op := m.GetIntOp().Op; op {
+			case pb_ft.IntOp_IN:
+				for _, value := range values {
+					if v == value {
+						return true, nil
+					}
+				}
+			default:
+				if len(values) != 1 {
+					// Bug
+					return false, errors.Errorf("invalid no. of values for key %s for feature toggle %s", m.Key.Key, name)
+				}
+				on := false
+				switch op {
+				case pb_ft.IntOp_EQ:
+					on = v == values[0]
+				case pb_ft.IntOp_GT:
+					on = v > values[0]
+				case pb_ft.IntOp_GTE:
+					on = v >= values[0]
+				case pb_ft.IntOp_LT:
+					on = v < values[0]
+				case pb_ft.IntOp_LTE:
+					on = v <= values[0]
+				case pb_ft.IntOp_NEQ:
 					on = v != values[0]
 				}
 				if on {

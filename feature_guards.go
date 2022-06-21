@@ -25,7 +25,7 @@ var (
 	ErrNoFeatureToggles error = errors.New("can't connect to feature guards")
 )
 
-type ResilientFeatureToggles struct {
+type FeatureGuards struct {
 	mu       sync.RWMutex
 	ft       *featureToggles
 	defaults map[string]bool
@@ -34,7 +34,7 @@ type ResilientFeatureToggles struct {
 // New creates a new FeatureGuards client. The context passed in is expected to be long-running and
 // controls the life-time of the client, usually the same lifetime as the binary.
 // New dials in a separate go routine and will try to establish connection to FeatureGuards over time.
-func New(ctx context.Context, options ...Options) *ResilientFeatureToggles {
+func New(ctx context.Context, options ...Options) *FeatureGuards {
 	// extract the defaults
 	opts := &toggleOptions{}
 	for _, opt := range options {
@@ -53,7 +53,7 @@ func New(ctx context.Context, options ...Options) *ResilientFeatureToggles {
 	}
 	options = append(options, WithDialOptions(grpc.WithTransportCredentials(creds)))
 	ft, err := newFeatureToggles(ctx, options...)
-	r := &ResilientFeatureToggles{
+	r := &FeatureGuards{
 		ft:       ft,
 		defaults: defaults,
 	}
@@ -82,7 +82,7 @@ func New(ctx context.Context, options ...Options) *ResilientFeatureToggles {
 
 // IsOn returns whether the feature toggle with the given name is on or not based on its settings and
 // the passed in options, which include any attributes FeatureGuards rules match against.
-func (r *ResilientFeatureToggles) IsOn(name string, options ...FeatureToggleOptions) (bool, error) {
+func (r *FeatureGuards) IsOn(name string, options ...FeatureToggleOptions) (bool, error) {
 	r.mu.RLock()
 	ft := r.ft
 	r.mu.RUnlock()

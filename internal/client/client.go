@@ -76,13 +76,13 @@ func New(ctx context.Context, options ...Options) (*Client, error) {
 
 	dialCtx, cancelDial := context.WithTimeout(ctx, dialTimeout)
 	defer cancelDial()
-	authConn, err := grpc.DialContext(dialCtx, urlFromDomain("auth", opts.domain), opts.dialOptions...)
+	authConn, err := grpc.DialContext(dialCtx, opts.domain, opts.dialOptions...)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 	auth := pb_auth.NewAuthClient(authConn)
 
-	togglesConn, err := grpc.DialContext(dialCtx, urlFromDomain("toggles", opts.domain), opts.dialOptions...)
+	togglesConn, err := grpc.DialContext(dialCtx, opts.domain, opts.dialOptions...)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

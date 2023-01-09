@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	defaultDomain = "api.featureguards.com"
+	defaultDomain = "api.featureguards.com:443"
 	dialTimeout   = 1 * time.Second
 	apiTimeout    = 3 * time.Second
 	errTimeout    = 1 * time.Minute

@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	defaultDomain = "featureguards.com"
+	defaultDomain = "api.featureguards.com"
 	dialTimeout   = 1 * time.Second
 	apiTimeout    = 3 * time.Second
 	errTimeout    = 1 * time.Minute
@@ -82,8 +82,7 @@ func newFeatureToggles(ctx context.Context, options ...Options) (*featureToggles
 
 	apiCtx, cancel = context.WithTimeout(ctx, apiTimeout)
 	defer cancel()
-	var version int64
-	fetched, err := cl.Fetch(apiCtx, accessToken, version)
+	fetched, err := cl.Fetch(apiCtx, accessToken, int64(0))
 	if err != nil {
 		return nil, err
 	}

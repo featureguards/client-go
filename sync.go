@@ -70,7 +70,6 @@ func (ft *featureToggles) listenCtx(ctx context.Context) (context.Context, conte
 	if err != nil {
 		return nil, nil, err
 	}
-	log.Infof("%+v\n", token.Expiration())
 	newCtx, cancel := context.WithDeadline(ctx, token.Expiration())
 	return newCtx, cancel, nil
 }

@@ -6,7 +6,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/golang/protobuf v1.5.2
 	github.com/sirupsen/logrus v1.8.1
-	google.golang.org/genproto v0.0.0-20220526192754-51939a95c655
 	google.golang.org/grpc v1.46.2
 	google.golang.org/protobuf v1.28.0
 )
@@ -20,6 +19,7 @@ require (
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f // indirect
+	google.golang.org/genproto v0.0.0-20220526192754-51939a95c655 // indirect
 )
 
 require (

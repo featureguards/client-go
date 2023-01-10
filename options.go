@@ -1,6 +1,7 @@
 package featureguards
 
 import (
+	"github.com/featureguards/featureguards-go/v2/dynamic_settings"
 	"github.com/featureguards/featureguards-go/v2/internal/logger"
 
 	"google.golang.org/grpc"
@@ -13,13 +14,14 @@ type LogLevel = logger.LogLevel
 type Options = func(o *toggleOptions) error
 
 type toggleOptions struct {
-	domain        string
-	logLevel      logger.LogLevel
-	dialOptions   []grpc.DialOption
-	testCerts     bool
-	apiKey        string
-	withoutListen bool
-	defaults      map[string]bool
+	domain          string
+	logLevel        logger.LogLevel
+	dialOptions     []grpc.DialOption
+	testCerts       bool
+	apiKey          string
+	withoutListen   bool
+	defaults        map[string]bool
+	dynamicSettings *dynamic_settings.DynamicSettings
 }
 
 // WithDialOptions adds gRPC dial options. Can be used to enforce a timeout on the initial dial.
@@ -44,6 +46,14 @@ func WithApiKey(key string) Options {
 func WithDefaults(v map[string]bool) Options {
 	return func(o *toggleOptions) error {
 		o.defaults = v
+		return nil
+	}
+}
+
+// WithDynamicSettings adds the dynamic settings to be updated via FeatureGuards.
+func WithDynamicSettings(v *dynamic_settings.DynamicSettings) Options {
+	return func(o *toggleOptions) error {
+		o.dynamicSettings = v
 		return nil
 	}
 }

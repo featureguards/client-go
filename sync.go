@@ -55,10 +55,11 @@ func (cw *clientWrapper) listen(bgCtx context.Context) error {
 		return err
 	}
 	for payload := range ch {
-		cw.ft.process(payload.FeatureToggles, payload.Version)
+		cw.ft.process(payload.FeatureToggles)
 		atomic.StoreInt64(&cw.ftVersion, payload.Version)
 
-		// TODO: process dynamic settings
+		cw.ds.Process(payload.DynamicSettings)
+		atomic.StoreInt64(&cw.dsVersion, payload.SettingsVersion)
 	}
 	return nil
 }

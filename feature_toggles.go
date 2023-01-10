@@ -30,7 +30,7 @@ type featureToggles struct {
 // returns. It also kicks off a go routine to sync changes to feature toggles in the background. The
 // ctx passed in should be that controlling the entire lifetime of the client and not a per request
 // context. This is because the client is expected to be long running.
-func newFeatureToggles(ctx context.Context, fts []*pb_ft.FeatureToggle, version int64, options ...Options) (*featureToggles, error) {
+func newFeatureToggles(ctx context.Context, fts []*pb_ft.FeatureToggle, options ...Options) (*featureToggles, error) {
 	opts := &toggleOptions{}
 	for _, opt := range options {
 		if err := opt(opts); err != nil {
@@ -78,7 +78,7 @@ func (ft *featureToggles) IsOn(name string, options ...FeatureToggleOptions) (bo
 	return on, nil
 }
 
-func (ft *featureToggles) process(fts []*pb_ft.FeatureToggle, version int64) {
+func (ft *featureToggles) process(fts []*pb_ft.FeatureToggle) {
 	ft.mu.Lock()
 	defer ft.mu.Unlock()
 	for _, toggle := range fts {

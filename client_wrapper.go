@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/featureguards/featureguards-go/v2/dynamic_settings"
 	"github.com/featureguards/featureguards-go/v2/internal/client"
 	"github.com/featureguards/featureguards-go/v2/internal/random"
 	log "github.com/sirupsen/logrus"
@@ -23,6 +24,7 @@ type clientWrapper struct {
 
 	// immutable
 	ft *featureToggles
+	ds *dynamic_settings.DynamicSettings
 
 	// atomic operations only
 	ftVersion int64
@@ -82,7 +84,7 @@ func newClientWrapper(ctx context.Context, options ...Options) (*clientWrapper, 
 		return nil, err
 	}
 
-	ft, err := newFeatureToggles(ctx, fetched.FeatureToggles, fetched.Version, options...)
+	ft, err := newFeatureToggles(ctx, fetched.FeatureToggles, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +96,20 @@ func newClientWrapper(ctx context.Context, options ...Options) (*clientWrapper, 
 		ft:                ft,
 	}
 
-	ft.process(fetched.FeatureToggles, fetched.Version)
+	ft.process(fetched.FeatureToggles)
+	client.ftVersion = fetched.Version
+
+	client.ds = opts.dynamicSettings
+
+	if fetched.SettingsVersion > 0 {
+		if client.ds == nil {
+			log.Warningln("found dynamic settings in FeatureGuards but no DynamicSettings passed. " +
+				"Please make sure use WithDynamicSetting in the options to featureguards.New.")
+		} else {
+			client.ds.Process(fetched.DynamicSettings)
+		}
+	}
+	client.dsVersion = fetched.SettingsVersion
 
 	if !opts.withoutListen {
 		go client.listenLoop(ctx)

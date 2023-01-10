@@ -9,13 +9,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	pb_ft "github.com/featureguards/featureguards-go/v2/proto/feature_toggle"
 )
 
-func (ft *featureToggles) listenLoop(bgCtx context.Context) {
+func (cw *clientWrapper) listenLoop(bgCtx context.Context) {
 	for {
-		err := ft.listen(bgCtx)
+		err := cw.listen(bgCtx)
 		if err != nil {
 			st, ok := status.FromError(err)
 			if !ok {
@@ -26,7 +24,7 @@ func (ft *featureToggles) listenLoop(bgCtx context.Context) {
 			}
 			if st.Code() == codes.PermissionDenied {
 				// Need to re-authenticate
-				if err := ft.refreshTokens(bgCtx); err != nil {
+				if err := cw.refreshTokens(bgCtx); err != nil {
 					// Something odd happened
 					log.Errorf("Unexpected error (%s). Sleeping a bit.\n", err)
 					// Sleep a bit
@@ -43,30 +41,33 @@ func (ft *featureToggles) listenLoop(bgCtx context.Context) {
 	}
 }
 
-func (ft *featureToggles) listen(bgCtx context.Context) error {
-	ctx, cancel, err := ft.listenCtx(bgCtx)
+func (cw *clientWrapper) listen(bgCtx context.Context) error {
+	ctx, cancel, err := cw.listenCtx(bgCtx)
 	if err != nil {
 		return err
 	}
 	defer cancel()
-	ft.mu.RLock()
-	accessToken := ft.accessToken
-	ft.mu.RUnlock()
-	ch, err := ft.client.Listen(ctx, accessToken, atomic.LoadInt64(&ft.clientVersion))
+	cw.mu.RLock()
+	accessToken := cw.accessToken
+	cw.mu.RUnlock()
+	ch, err := cw.client.Listen(ctx, accessToken, atomic.LoadInt64(&cw.ftVersion), atomic.LoadInt64(&cw.dsVersion))
 	if err != nil {
 		return err
 	}
 	for payload := range ch {
-		ft.process(payload.FeatureToggles, payload.Version)
+		cw.ft.process(payload.FeatureToggles, payload.Version)
+		atomic.StoreInt64(&cw.ftVersion, payload.Version)
+
+		// TODO: process dynamic settings
 	}
 	return nil
 }
 
-func (ft *featureToggles) listenCtx(ctx context.Context) (context.Context, context.CancelFunc, error) {
+func (ft *clientWrapper) listenCtx(ctx context.Context) (context.Context, context.CancelFunc, error) {
 	ft.mu.RLock()
 	accessToken := ft.accessToken
 	ft.mu.RUnlock()
-	token, err := ft.parse(accessToken)
+	token, err := parseToken(accessToken)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -74,7 +75,7 @@ func (ft *featureToggles) listenCtx(ctx context.Context) (context.Context, conte
 	return newCtx, cancel, nil
 }
 
-func (ft *featureToggles) refreshTokens(bgCtx context.Context) error {
+func (ft *clientWrapper) refreshTokens(bgCtx context.Context) error {
 	ctx, cancel := context.WithTimeout(bgCtx, time.Second)
 	defer cancel()
 
@@ -93,19 +94,6 @@ func (ft *featureToggles) refreshTokens(bgCtx context.Context) error {
 	return nil
 }
 
-func (ft *featureToggles) parse(token string) (jwt.Token, error) {
+func parseToken(token string) (jwt.Token, error) {
 	return jwt.Parse([]byte(token), jwt.WithVerify(false))
-}
-
-func (ft *featureToggles) process(fts []*pb_ft.FeatureToggle, version int64) {
-	ft.mu.Lock()
-	defer ft.mu.Unlock()
-	for _, toggle := range fts {
-		if toggle.DeletedAt.IsValid() {
-			delete(ft.ftByName, toggle.Name)
-		} else {
-			ft.ftByName[toggle.Name] = toggle
-		}
-	}
-	atomic.StoreInt64(&ft.clientVersion, version)
 }

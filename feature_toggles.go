@@ -10,98 +10,43 @@ import (
 	"time"
 
 	"github.com/cespare/xxhash/v2"
-	"github.com/featureguards/featureguards-go/v2/internal/client"
-	"github.com/featureguards/featureguards-go/v2/internal/random"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 
+	pb_ds "github.com/featureguards/featureguards-go/v2/proto/dynamic_setting"
 	pb_ft "github.com/featureguards/featureguards-go/v2/proto/feature_toggle"
 )
 
-const (
-	defaultDomain = "api.featureguards.com:443"
-	dialTimeout   = 1 * time.Second
-	apiTimeout    = 3 * time.Second
-	errTimeout    = 1 * time.Minute
-)
-
 type featureToggles struct {
-	client *client.Client
-
 	// immutable
 	defaults map[string]bool
 
-	// atomic operations only
-	clientVersion int64
-
-	// errMu protects below
-	errMu             sync.Mutex
-	errDeadlineByName map[string]time.Time
-
 	// mu protects below
-	mu           sync.RWMutex
-	ftByName     map[string]*pb_ft.FeatureToggle
-	accessToken  string
-	refreshToken string
+	mu       sync.RWMutex
+	ftByName map[string]*pb_ft.FeatureToggle
+	dsByName map[string]*pb_ds.DynamicSetting
 }
 
 // newFeatureToggles creates a new feature toggles client that fetches the latest state of feature toggles and
 // returns. It also kicks off a go routine to sync changes to feature toggles in the background. The
 // ctx passed in should be that controlling the entire lifetime of the client and not a per request
 // context. This is because the client is expected to be long running.
-func newFeatureToggles(ctx context.Context, options ...Options) (*featureToggles, error) {
+func newFeatureToggles(ctx context.Context, fts []*pb_ft.FeatureToggle, version int64, options ...Options) (*featureToggles, error) {
 	opts := &toggleOptions{}
 	for _, opt := range options {
 		if err := opt(opts); err != nil {
 			return nil, err
 		}
 	}
-	var clientOptions []client.Options
-	if opts.dialOptions != nil {
-		clientOptions = append(clientOptions, client.WithDialOptions(opts.dialOptions...))
-	}
-	if opts.apiKey != "" {
-		clientOptions = append(clientOptions, client.WithApiKey(opts.apiKey))
-	}
-	if opts.domain == "" {
-		opts.domain = defaultDomain
-	}
-	clientOptions = append(clientOptions, client.WithDomain(opts.domain))
-	clientOptions = append(clientOptions, client.WithLogLevel(opts.logLevel))
-	cl, err := client.New(ctx, clientOptions...)
-	if err != nil {
-		return nil, err
-	}
-
-	apiCtx, cancel := context.WithTimeout(ctx, apiTimeout)
-	defer cancel()
-	accessToken, refreshToken, err := cl.Authenticate(apiCtx)
-	if err != nil {
-		return nil, err
-	}
-
-	apiCtx, cancel = context.WithTimeout(ctx, apiTimeout)
-	defer cancel()
-	fetched, err := cl.Fetch(apiCtx, accessToken, int64(0))
-	if err != nil {
-		return nil, err
+	defaults := opts.defaults
+	if defaults == nil {
+		defaults = make(map[string]bool)
 	}
 
 	rand.Seed(time.Now().UnixNano())
-
 	toggles := &featureToggles{
-		client:            cl,
-		ftByName:          make(map[string]*pb_ft.FeatureToggle),
-		errDeadlineByName: make(map[string]time.Time),
-		accessToken:       accessToken,
-		refreshToken:      refreshToken,
-		defaults:          opts.defaults,
-	}
-
-	toggles.process(fetched.FeatureToggles, fetched.Version)
-
-	if !opts.withoutListen {
-		go toggles.listenLoop(ctx)
+		ftByName: make(map[string]*pb_ft.FeatureToggle),
+		dsByName: make(map[string]*pb_ds.DynamicSetting),
+		defaults: defaults,
 	}
 
 	return toggles, nil
@@ -123,16 +68,26 @@ func (ft *featureToggles) IsOn(name string, options ...FeatureToggleOptions) (bo
 	ft.mu.RUnlock()
 	if !ok {
 		err := errors.Errorf("feature %s not found", name)
-		ft.maybeLogError(name, err)
 		return defaults, err
 	}
 
 	on, err := isOn(found, options...)
 	if err != nil {
-		ft.maybeLogError(name, err)
 		return defaults, err
 	}
 	return on, nil
+}
+
+func (ft *featureToggles) process(fts []*pb_ft.FeatureToggle, version int64) {
+	ft.mu.Lock()
+	defer ft.mu.Unlock()
+	for _, toggle := range fts {
+		if toggle.DeletedAt.IsValid() {
+			delete(ft.ftByName, toggle.Name)
+		} else {
+			ft.ftByName[toggle.Name] = toggle
+		}
+	}
 }
 
 func isOn(ft *pb_ft.FeatureToggle, options ...FeatureToggleOptions) (bool, error) {
@@ -220,20 +175,6 @@ func isOn(ft *pb_ft.FeatureToggle, options ...FeatureToggleOptions) (bool, error
 
 	}
 	return on, nil
-}
-
-// maybeLogError avoids logging the same error over and over again to avoid performance issues.
-func (ft *featureToggles) maybeLogError(name string, err error) {
-	now := time.Now()
-	ft.errMu.Lock()
-	deadline, ok := ft.errDeadlineByName[name]
-	if !ok || deadline.Before(now) {
-		ft.errDeadlineByName[name] = now.Add(random.Jitter(errTimeout))
-		ft.errMu.Unlock()
-		log.Error(err)
-	} else {
-		ft.errMu.Unlock()
-	}
 }
 
 func hash(name string, keys []*pb_ft.Key, salt string, attrs Attributes) (uint64, error) {

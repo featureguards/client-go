@@ -27,7 +27,7 @@ var (
 
 type FeatureGuards struct {
 	mu       sync.RWMutex
-	ft       *featureToggles
+	cw       *clientWrapper
 	defaults map[string]bool
 }
 
@@ -52,9 +52,9 @@ func New(ctx context.Context, options ...Options) *FeatureGuards {
 		log.Error("Could not initialize feature-guards.")
 	}
 	options = append(options, WithDialOptions(grpc.WithTransportCredentials(creds)))
-	ft, err := newFeatureToggles(ctx, options...)
+	cw, err := newClientWrapper(ctx, options...)
 	r := &FeatureGuards{
-		ft:       ft,
+		cw:       cw,
 		defaults: defaults,
 	}
 	if err != nil {
@@ -64,10 +64,10 @@ func New(ctx context.Context, options ...Options) *FeatureGuards {
 			for {
 				select {
 				case <-time.After(random.Jitter(retryConnect)):
-					ft, err := newFeatureToggles(ctx, options...)
+					cw, err := newClientWrapper(ctx, options...)
 					if err == nil {
 						r.mu.Lock()
-						r.ft = ft
+						r.cw = cw
 						r.mu.Unlock()
 						return
 					}
@@ -84,10 +84,10 @@ func New(ctx context.Context, options ...Options) *FeatureGuards {
 // the passed in options, which include any attributes FeatureGuards rules match against.
 func (r *FeatureGuards) IsOn(name string, options ...FeatureToggleOptions) (bool, error) {
 	r.mu.RLock()
-	ft := r.ft
+	cw := r.cw
 	r.mu.RUnlock()
-	if ft != nil {
-		return ft.IsOn(name, options...)
+	if cw != nil {
+		return cw.IsOn(name, options...)
 	}
 	found := r.defaults[name]
 	return found, ErrNoFeatureToggles

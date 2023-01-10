@@ -199,23 +199,23 @@ func Test_refreshTokens(t *testing.T) {
 	defer cancel()
 	addr := os.Getenv("GRPC_ADDR")
 	apiKey := os.Getenv("API_KEY")
-	ft := New(ctx, withDomain(addr), withoutListen(), withTestCerts(),
+	fg := New(ctx, withDomain(addr), withoutListen(), withTestCerts(),
 		WithApiKey(apiKey), WithDefaults(map[string]bool{"BAR": true}))
-	ft.ft.mu.Lock()
-	accessToken := ft.ft.accessToken
-	refreshToken := ft.ft.refreshToken
-	ft.ft.mu.Unlock()
-	err := ft.ft.refreshTokens(ctx)
+	fg.cw.mu.Lock()
+	accessToken := fg.cw.accessToken
+	refreshToken := fg.cw.refreshToken
+	fg.cw.mu.Unlock()
+	err := fg.cw.refreshTokens(ctx)
 	if err != nil {
 		t.Errorf("refreshTokens() error = %v, wantErr nil", err)
 	}
-	ft.ft.mu.Lock()
-	defer ft.ft.mu.Unlock()
-	if accessToken == ft.ft.accessToken {
-		t.Errorf("accessToken = %v, want != %v", ft.ft.accessToken, accessToken)
+	fg.cw.mu.Lock()
+	defer fg.cw.mu.Unlock()
+	if accessToken == fg.cw.accessToken {
+		t.Errorf("accessToken = %v, want != %v", fg.cw.accessToken, accessToken)
 	}
-	if refreshToken == ft.ft.refreshToken {
-		t.Errorf("refreshToken = %v, want != %v", ft.ft.refreshToken, refreshToken)
+	if refreshToken == fg.cw.refreshToken {
+		t.Errorf("refreshToken = %v, want != %v", fg.cw.refreshToken, refreshToken)
 	}
 }
 
@@ -224,20 +224,20 @@ func Test_IsOn(t *testing.T) {
 	defer cancel()
 	addr := os.Getenv("GRPC_ADDR")
 	apiKey := os.Getenv("API_KEY")
-	ft := New(ctx, withDomain(addr), withoutListen(), withTestCerts(),
+	fg := New(ctx, withDomain(addr), withoutListen(), withTestCerts(),
 		WithApiKey(apiKey), WithDefaults(map[string]bool{"BAR": true}))
-	if ft.ft == nil {
+	if fg.cw == nil {
 		t.Error("feature toggles should not be nil")
 	}
 
 	// test listen
 	deadlineCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
 	defer cancel()
-	if err := ft.ft.listen(deadlineCtx); err != nil {
+	if err := fg.cw.listen(deadlineCtx); err != nil {
 		t.Errorf("listen() error = %v, wantErr not found", err)
 	}
 
-	on, err := ft.IsOn("TEST")
+	on, err := fg.IsOn("TEST")
 	if err != nil {
 		t.Errorf("IsOn() error = %v, wantErr nil", err)
 	}
@@ -245,7 +245,7 @@ func Test_IsOn(t *testing.T) {
 		t.Errorf("on() on = %v, wantOn %v", on, true)
 	}
 
-	on, err = ft.IsOn("BAR")
+	on, err = fg.IsOn("BAR")
 	if err == nil {
 		t.Errorf("IsOn() error = %v, wantErr not found", err)
 	}

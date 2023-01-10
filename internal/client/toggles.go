@@ -7,13 +7,13 @@ import (
 	pb_toggles "github.com/featureguards/featureguards-go/v2/proto/toggles"
 )
 
-// Fetch fetches new feature toggles since clientVersion
-func (c *Client) Fetch(ctx context.Context, accessToken string, clientVersion int64) (*pb_toggles.FetchResponse, error) {
-	return c.togglesClient.Fetch(withJwtToken(ctx, accessToken), &pb_toggles.FetchRequest{Version: clientVersion})
+// Fetch fetches new feature toggles since ftVersion and settingsVersion
+func (c *Client) Fetch(ctx context.Context, accessToken string, ftVersion, settingsVersion int64) (*pb_toggles.FetchResponse, error) {
+	return c.togglesClient.Fetch(withJwtToken(ctx, accessToken), &pb_toggles.FetchRequest{Version: ftVersion, SettingsVersion: settingsVersion})
 }
 
-func (c *Client) Listen(ctx context.Context, accessToken string, clientVersion int64) (<-chan *pb_toggles.ListenPayload, error) {
-	stream, err := c.togglesClient.Listen(withJwtToken(ctx, accessToken), &pb_toggles.ListenRequest{Version: clientVersion})
+func (c *Client) Listen(ctx context.Context, accessToken string, ftVersion, settingsVersion int64) (<-chan *pb_toggles.ListenPayload, error) {
+	stream, err := c.togglesClient.Listen(withJwtToken(ctx, accessToken), &pb_toggles.ListenRequest{Version: ftVersion, SettingsVersion: settingsVersion})
 	if err != nil {
 		return nil, err
 	}
